@@ -1,140 +1,136 @@
-# 🤖 EstudioIA — Tu Tutor Inteligente de Tecnología
+# 🎓 EstudioIA — Tu Tutor Inteligente de Tecnología
 
-> Plataforma web de tutoría con IA especializada en áreas de informática y tecnología. Cada tutor está diseñado para guiar al estudiante con explicaciones claras, ejemplos de código y conversaciones contextuales en tiempo real.
+> **Demo en vivo:** [fabianix8-collab.github.io/EstudioIA](https://fabianix8-collab.github.io/EstudioIA/)
 
-![Estado](https://img.shields.io/badge/estado-activo-brightgreen)
-![Tecnología](https://img.shields.io/badge/IA-Llama%203.1-blue)
-![Stack](https://img.shields.io/badge/stack-HTML%20%7C%20Firebase%20%7C%20Supabase-orange)
+Plataforma de tutorías con IA especializada en tecnología e informática. Cada tutor tiene un perfil y contexto distinto — no es un chatbot genérico, es un tutor que entiende el dominio específico de lo que estás estudiando.
 
 ---
 
-## ✨ Características principales
+## ¿Qué hace?
 
-- 🧠 **6 tutores especializados** — Programación, Base de Datos, Redes, Sistemas Operativos, Cloud & DevOps e Inteligencia Artificial
-- 💬 **Chat contextual** — el tutor recuerda el hilo de la conversación y responde de forma coherente
-- 📂 **Historial persistente** — las conversaciones se guardan por sesión, puedes retomar cualquier chat anterior
-- 🔐 **Autenticación segura** — login con Google o correo/contraseña via Firebase Auth
-- 🌙 **Modo oscuro/claro** — toggle de tema incluido
-- 📱 **Responsive** — funciona en desktop y móvil
-- ⚡ **Tiempo real** — respuestas en streaming sin recargar página
+- **6 tutores especializados** — Programación, Base de Datos, Redes, Sistemas Operativos, Cloud & DevOps, e Inteligencia Artificial. Cada uno con su propio system prompt, chips de pregunta rápida y color de acento
+- **Historial de conversaciones** — las sesiones se guardan por usuario y ramo en Supabase, con agrupación por sesión y vista de conversaciones anteriores
+- **Formateo de código** — bloques de código con resaltado de sintaxis, negritas, cursivas y links renderizados correctamente en el chat
+- **IA real vía proxy seguro** — llama a Groq (Llama 3.1) a través de una Supabase Edge Function; la API key nunca llega al navegador
+- **Modo demo** — cualquier visitante puede usar la app sin configurar nada ni crear cuenta
+- **Dark/Light mode** — con transiciones suaves y preferencia persistida
+- **Deploy automático** — GitHub Actions despliega en cada push a `main`
 
 ---
 
-## 🛠️ Stack tecnológico
+## Demo
+
+**[→ Abrir EstudioIA](https://fabianix8-collab.github.io/EstudioIA/)**
+
+Haz click en **"Continuar sin cuenta"** para entrar al modo demo sin crear cuenta. En modo completo (con Groq API key configurada), el tutor responde con IA real usando Llama 3.1 de Groq.
+
+---
+
+## Screenshots
+
+![Selector de tutores — 6 áreas de tecnología disponibles](screenshots/selector.png)
+
+![Chat con el tutor de Programación](screenshots/tutor-ia.png)
+
+---
+
+## Arquitectura
+
+```
+Usuario
+  │
+  ▼
+index.html  (HTML + CSS)
+  │
+  ├── src/config.js   — estado global, URL de Supabase (pública por diseño)
+  ├── src/ramos.js    — configuración de los 6 tutores
+  ├── src/api.js      — callLLM() + Supabase REST (historial)
+  ├── src/auth.js     — Firebase authentication
+  ├── src/ui.js       — DOM helpers, formateo Markdown, renderHistory
+  ├── src/chat.js     — lógica de conversación y sesiones
+  └── src/main.js     — inicialización y conexión de eventos
+         │
+         ▼
+  Supabase Edge Function: groq-proxy
+         │                    ↑
+         │              GROQ_API_KEY (secret en servidor, nunca en cliente)
+         ▼
+  Groq API (Llama 3.1-8b-instant)
+```
+
+**Decisión de seguridad clave:** la GROQ_API_KEY nunca llega al navegador. Toda llamada a Groq pasa por `supabase/functions/groq-proxy`, donde la key vive como variable de entorno del servidor. Esto resuelve el problema más común en proyectos de IA frontend: keys expuestas en el bundle de JavaScript.
+
+---
+
+## Stack
 
 | Capa | Tecnología |
 |------|-----------|
-| Frontend | HTML5 + CSS3 + JavaScript (Vanilla) |
-| IA | Groq API — Llama 3.1 8B Instant |
-| Autenticación | Firebase Authentication |
-| Base de datos | Supabase (PostgreSQL) |
-| Hosting | Compatible con Vercel, Netlify o GitHub Pages |
+| Frontend | HTML5 + CSS3 + JavaScript ES Modules (sin bundler, sin framework) |
+| IA | Groq API (Llama 3.1-8b-instant) vía Supabase Edge Function |
+| Base de datos | Supabase (Postgres + RLS) |
+| Autenticación | Firebase Auth (Google + Email/Password) |
+| Deploy | GitHub Pages + GitHub Actions |
 
 ---
 
-## 🚀 Demo rápida
-
-1. Clona o descarga el repositorio
-2. Abre `EstudioIA.html` en tu navegador (o despliega en cualquier hosting estático)
-3. En la pantalla de configuración ingresa tus credenciales
-4. Elige un tutor y empieza a estudiar
-
-> ⚠️ El proyecto funciona con **cualquier proveedor compatible con la API de OpenAI** (Groq, Together AI, Mistral, OpenAI, etc.) — solo cambia la URL y el modelo.
-
----
-
-## 🔑 Credenciales necesarias
-
-El proyecto solicita las credenciales en la pantalla de configuración al primer uso. **No se almacenan en ningún servidor externo**, solo en el `localStorage` del navegador.
-
-| Credencial | Dónde obtenerla | Para qué sirve |
-|-----------|----------------|----------------|
-| Groq API Key | [console.groq.com/keys](https://console.groq.com/keys) | Llamadas al modelo de IA |
-| Supabase URL + Key | [supabase.com](https://supabase.com) | Guardar historial de chats |
-| Firebase Config | [console.firebase.google.com](https://console.firebase.google.com) | Login y autenticación |
-
----
-
-## 📐 Arquitectura del proyecto
+## Estructura del proyecto
 
 ```
-EstudioIA.html          ← Archivo único (SPA)
-│
-├── CONFIG & STATE       ← Estado global de la app
-├── FIREBASE AUTH        ← Login Google / Email
-├── SUPABASE             ← CRUD historial de mensajes
-├── GROQ API             ← Llamadas al modelo LLM
-├── CHAT LOGIC           ← Manejo de conversaciones
-└── UI RENDERING         ← Renderizado de mensajes, markdown y código
+EstudioIA/
+├── index.html                          # Entrada principal (HTML + CSS)
+├── src/
+│   ├── config.js                       # Estado global y config de Supabase
+│   ├── ramos.js                        # Los 6 tutores especializados
+│   ├── api.js                          # callLLM() + Supabase REST
+│   ├── auth.js                         # Firebase auth
+│   ├── ui.js                           # DOM helpers y formateo
+│   ├── chat.js                         # Lógica de conversación
+│   └── main.js                         # Punto de entrada
+├── supabase/
+│   ├── schema.sql                      # Tablas + RLS
+│   └── functions/groq-proxy/index.ts   # Proxy seguro para Groq API
+├── screenshots/                        # Capturas para el README
+├── .github/workflows/deploy.yml        # CI/CD a GitHub Pages
+└── DEPLOYMENT.md                       # Runbook operativo completo
 ```
 
 ---
 
-## 💡 Decisiones técnicas destacadas
+## Correr localmente
 
-- **Single File App** — toda la aplicación en un solo archivo HTML para máxima portabilidad y facilidad de despliegue
-- **Sin frameworks** — JavaScript vanilla puro, sin dependencias de npm ni proceso de build
-- **Sesiones de conversación** — sistema de `session_id` para agrupar mensajes y permitir historial navegable
-- **Markdown rendering** — las respuestas del tutor se renderizan con formato enriquecido y syntax highlighting para código
-- **Context window** — se envían los últimos 10 mensajes al modelo para mantener coherencia en la conversación
+```bash
+# Clonar el repo
+git clone https://github.com/fabianix8-collab/EstudioIA.git
+cd EstudioIA
 
----
-
-## 📸 Capturas
-
-### 🔐 Login
-![Login](screenshots/login.png)
-
-### 🎓 Selector de tutores
-![Selector](screenshots/selector.png)
-
-### 💬 Chat con historial de conversaciones
-![Chat Historial](screenshots/chat-historial.png)
-
-### 🧑‍💻 Respuesta con código formateado
-![Chat Código](screenshots/chat-codigo.png)
-
-### 🤖 Tutor de Inteligencia Artificial
-![Tutor IA](screenshots/tutor-ia.png)
-
----
-
-
----
-
-## 🔄 Cambiar el proveedor de IA
-
-El proyecto usa el estándar de API de OpenAI, compatible con múltiples proveedores. Para cambiar el modelo solo necesitas modificar **2 líneas** en `EstudioIA.html`:
-
-Busca la función `callGemini` (línea ~1814) y cambia:
-
-```javascript
-// Línea 1: el modelo
-model: 'llama-3.1-8b-instant',
-
-// Línea 2: la URL del proveedor
-const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+# Servir con cualquier servidor estático
+npx serve .
+# → http://localhost:3000
 ```
 
-### Proveedores compatibles
+No requiere `npm install` ni proceso de build. Es HTML/JS puro con ES Modules nativos del navegador.
 
-| Proveedor | URL | Modelos recomendados | Plan gratuito |
-|-----------|-----|---------------------|---------------|
-| **Groq** _(default)_ | `https://api.groq.com/openai/v1/chat/completions` | `llama-3.1-8b-instant`, `mixtral-8x7b-32768` | ✅ Sí |
-| **OpenAI** | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini`, `gpt-3.5-turbo` | ❌ No |
-| **Together AI** | `https://api.together.xyz/v1/chat/completions` | `meta-llama/Llama-3-8b-chat-hf` | ✅ Sí |
-| **Mistral** | `https://api.mistral.ai/v1/chat/completions` | `mistral-small-latest` | ✅ Sí |
-| **OpenRouter** | `https://openrouter.ai/api/v1/chat/completions` | Cualquier modelo disponible | ✅ Sí |
-
-> Todos usan el mismo formato de API — solo cambia la URL y el nombre del modelo. La API key del proveedor elegido va en la pantalla de configuración de la app.
-
-## 👨‍💻 Autor
-
-Desarrollado por **fabianix** · Estudiante de Informática y Telecomunicaciones  
-[![GitHub](https://img.shields.io/badge/GitHub-fabianix-181717?logo=github)](https://github.com/TU_USUARIO)
+Para activar el tutor IA real localmente, necesitas la Edge Function de Supabase desplegada. Ver `DEPLOYMENT.md`.
 
 ---
 
-## 📄 Licencia
+## Roadmap
 
-MIT — libre para usar, modificar y distribuir.
+- [x] 6 tutores especializados con system prompts por dominio
+- [x] Proxy seguro para Groq API (key nunca en el cliente)
+- [x] Historial de conversaciones agrupado por sesión
+- [x] Formateo de código y Markdown en el chat
+- [x] Modo demo sin configuración
+- [x] Arquitectura modular (6 módulos JS con responsabilidad única)
+- [x] Deploy automático con GitHub Actions
+- [ ] Persistencia de sesión entre visitas (IndexedDB)
+- [ ] Soporte para más modelos (Mixtral, Gemma)
+- [ ] Exportar conversación como PDF
+- [ ] Modo "examen" — el tutor hace preguntas en vez de responderlas
+
+---
+
+## Licencia
+
+MIT — proyecto educativo / portafolio.
