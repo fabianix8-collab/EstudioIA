@@ -99,14 +99,23 @@ function setUser(user) {
 // INIT — punto de entrada de la app
 // ---------------------------------------------------------------------------
 async function init() {
-  // Ir directo al login — sin pantalla de configuración, sin localStorage
-  // La app funciona inmediatamente para cualquier visitante
   showScreen('screen-login');
 
-  // Intentar inicializar Firebase con las credenciales demo (si las hubiera)
-  // En esta versión pública, el botón "Continuar sin cuenta" lleva al modo demo
-  // El modo con cuenta real requiere Firebase configurado por el operador.
-  // Ver DEPLOYMENT.md para instrucciones de configuración de Firebase.
+  // Inicializar Firebase
+  try {
+    const user = await initFirebase(
+      'AIzaSyBmXhtOfVfqy0SjA94EYw_TV7T2fpo7ToM',
+      'estudioia-duoc-e7a45.firebaseapp.com',
+      'estudioia-duoc-e7a45'
+    );
+    if (user) {
+      setUser({ uid: user.uid, email: user.email, name: user.displayName || user.email, photo: user.photoURL });
+      showScreen('screen-selector');
+      loadSelector();
+    }
+  } catch (e) {
+    console.warn('Firebase init:', e);
+  }
 
   // Ocultar loading
   setTimeout(() => {
