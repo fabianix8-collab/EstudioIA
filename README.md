@@ -162,6 +162,14 @@ Para activar el tutor IA real y el historial de conversaciones localmente, neces
 
 ---
 
+## Contexto
+
+Estudiar tecnología fuera de horario de clases significa, casi siempre, quedarte con la duda hasta el día siguiente — o perder media hora buscando en foros una respuesta que ya nadie revisa. EstudioIA nace de esa fricción: un tutor especializado por área, disponible a cualquier hora, que entiende el contexto específico de lo que estás preguntando en vez de dar respuestas genéricas de chatbot.
+
+No reemplaza un profesor ni un compañero de estudio — es un complemento para esas dos de la mañana en que solo necesitas que alguien te explique por qué tu query no usa el índice, o qué diferencia hay entre TCP y UDP en la práctica, sin tener que esperar a la próxima clase.
+
+---
+
 ## Licencia
 
 MIT — proyecto educativo / portafolio.
