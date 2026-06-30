@@ -1,18 +1,27 @@
 // ============================================================================
-// src/api.js — Llamadas a la API (Groq via Edge Function + Supabase REST)
+// src/api.js — Llamadas a la API (Groq via Edge Function + Supabase via Edge Function)
 // ============================================================================
 // DECISIONES DE SEGURIDAD:
 //
 // 1. callLLM() llama a la Supabase Edge Function 'groq-proxy' en vez de
 //    llamar directamente a api.groq.com. Esto significa que la GROQ_API_KEY
 //    nunca llega al navegador — vive como secret en el servidor de Supabase.
-//    Renombrado de 'callGemini' (nombre incorrecto del archivo original) a
-//    'callLLM' para reflejar que es agnóstico al proveedor.
 //
-// 2. saveMessage() y loadHistory() usan la REST API de Supabase con la
-//    anon key. La seguridad real la da Row Level Security (RLS) en Supabase:
-//    cada usuario solo puede leer/escribir sus propios mensajes.
-//    Ver supabase/schema.sql para las políticas.
+// 2. saveMessage(), loadHistory(), loadSession() y deleteSession() llaman a
+//    la Edge Function 'mensajes-proxy' en vez de hablar directo con
+//    /rest/v1/mensajes usando la anon key.
+//
+//    POR QUÉ: la app autentica con Firebase, no con Supabase Auth, así que
+//    `auth.uid()` de Postgres no puede filtrar por usuario — Row Level
+//    Security a nivel de base de datos no tiene forma de saber quién hace
+//    la query. Confiar en que el FRONTEND siempre mande el user_id correcto
+//    en la query (como se hacía antes) es inseguro: la anon key es pública,
+//    y cualquiera puede llamar a la REST API de Supabase directamente sin
+//    pasar por este archivo, sin ningún filtro.
+//
+//    mensajes-proxy verifica el Firebase ID Token del lado del servidor y
+//    usa el uid VERIFICADO para filtrar — nunca confía en lo que mande el
+//    cliente. Ver supabase/functions/mensajes-proxy/index.ts.
 // ============================================================================
 
 import { SUPABASE_URL, SUPABASE_ANON, APP } from './config.js';
@@ -29,7 +38,6 @@ export async function callLLM(messages) {
     );
   }
 
-  // Normalizar al formato OpenAI (role + content) que espera groq-proxy
   const normalized = messages.map(m => ({
     role: m.role === 'model' ? 'assistant' : (m.role || 'user'),
     content: m.parts?.[0]?.text ?? m.content ?? '',
@@ -76,56 +84,62 @@ def hola_mundo():
 }
 
 // ---------------------------------------------------------------------------
-// Supabase REST — historial de mensajes
+// Supabase — historial de mensajes vía mensajes-proxy (Firebase token verificado)
 // ---------------------------------------------------------------------------
-async function supabaseFetch(method, path, body) {
+
+/**
+ * Wrapper interno: llama a mensajes-proxy adjuntando el Firebase ID Token
+ * del usuario autenticado. Si no hay sesión activa, no hace la llamada.
+ */
+async function mensajesProxyCall(action, extra = {}) {
+  if (!APP.user || APP.isDemoMode) return null;
+
+  // APP.user.getIdToken() es el método estándar del SDK de Firebase Auth
+  // para obtener un token firmado y verificable del lado del servidor.
+  const idToken = await APP.user.getIdToken();
+
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-      method,
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/mensajes-proxy`, {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'apikey': SUPABASE_ANON,
         'Authorization': `Bearer ${SUPABASE_ANON}`,
-        'Content-Type': 'application/json',
-        'Prefer': method === 'POST' ? 'return=minimal' : 'return=representation',
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: JSON.stringify({ action, idToken, ...extra }),
     });
-    if (!res.ok) return null;
-    if (method === 'GET') return await res.json();
-    return true;
-  } catch {
+
+    if (!res.ok) {
+      console.error(`[mensajes-proxy] ${action} failed:`, res.status);
+      return null;
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error(`[mensajes-proxy] ${action} error:`, err);
     return null;
   }
 }
 
 export async function saveMessage(rol, contenido, ramo) {
-  if (!APP.user || APP.isDemoMode) return;
-  await supabaseFetch('POST', '/mensajes', {
-    rol, contenido, ramo,
-    user_id: APP.user.uid,
-    session_id: APP.sessionId || 'default',
+  await mensajesProxyCall('save', {
+    rol,
+    contenido,
+    ramo,
+    sessionId: APP.sessionId || 'default',
   });
 }
 
 export async function loadHistory(ramo) {
-  if (!APP.user || APP.isDemoMode) return [];
-  const data = await supabaseFetch('GET',
-    `/mensajes?user_id=eq.${APP.user.uid}&ramo=eq.${ramo}&order=created_at.asc&limit=200`
-  );
-  return data || [];
+  const result = await mensajesProxyCall('loadHistory', { ramo });
+  return result?.data || [];
 }
 
 export async function loadSession(sessionId) {
-  if (!APP.user || APP.isDemoMode) return [];
-  const data = await supabaseFetch('GET',
-    `/mensajes?user_id=eq.${APP.user.uid}&session_id=eq.${sessionId}&order=created_at.asc`
-  );
-  return data || [];
+  const result = await mensajesProxyCall('loadSession', { sessionId });
+  return result?.data || [];
 }
 
 export async function deleteSession(sessionId) {
-  if (!APP.user || APP.isDemoMode) return;
-  await supabaseFetch('DELETE',
-    `/mensajes?user_id=eq.${APP.user.uid}&session_id=eq.${sessionId}`
-  );
+  await mensajesProxyCall('deleteSession', { sessionId });
 }
