@@ -25,6 +25,7 @@
 // ============================================================================
 
 import { SUPABASE_URL, SUPABASE_ANON, APP } from './config.js';
+import { getCurrentIdToken } from './auth.js';
 
 // ---------------------------------------------------------------------------
 // LLM — llama al proxy seguro en Supabase (la key real nunca llega al cliente)
@@ -94,9 +95,15 @@ def hola_mundo():
 async function mensajesProxyCall(action, extra = {}) {
   if (!APP.user || APP.isDemoMode) return null;
 
-  // APP.user.getIdToken() es el método estándar del SDK de Firebase Auth
-  // para obtener un token firmado y verificable del lado del servidor.
-  const idToken = await APP.user.getIdToken();
+  // APP.user es un objeto plano (uid, email, name) — no tiene getIdToken().
+  // El token real se obtiene de la instancia viva de Firebase Auth.
+  let idToken;
+  try {
+    idToken = await getCurrentIdToken();
+  } catch (err) {
+    console.error('[mensajes-proxy] Could not get ID token:', err.message);
+    return null;
+  }
 
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/mensajes-proxy`, {

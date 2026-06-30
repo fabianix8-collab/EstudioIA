@@ -54,6 +54,25 @@ export async function registerWithEmail(email, password) {
   return { uid: u.uid, email: u.email, name: email };
 }
 
+/**
+ * Obtiene un Firebase ID Token fresco del usuario actualmente autenticado.
+ *
+ * IMPORTANTE: APP.user es un objeto plano (uid, email, name) creado por
+ * loginWithGoogle/loginWithEmail para uso en la UI — NO es la instancia
+ * real de Firebase Auth y no tiene getIdToken(). Esta función va directo
+ * a fbAuth.currentUser, que SÍ es la instancia real del SDK y mantiene el
+ * token actualizado automáticamente (Firebase lo refresca solo cuando
+ * está por expirar).
+ *
+ * Usado por api.js para autenticar las llamadas a mensajes-proxy.
+ */
+export async function getCurrentIdToken() {
+  if (!fbAuth?.currentUser) {
+    throw new Error('No hay un usuario de Firebase autenticado actualmente.');
+  }
+  return await fbAuth.currentUser.getIdToken();
+}
+
 export async function logout() {
   APP.user = null;
   APP.isDemoMode = false;
